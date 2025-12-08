@@ -1,0 +1,23 @@
+# # Blender models directory
+# blender_models/
+
+# Python cache
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Output files
+output/
+
+# Virtual environments
+venv/
+env/
+ENV/
+
+# IDE
+.vscode/
+.idea/
+
+# OS
+.DS_Store
+Thumbs.db
