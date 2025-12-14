@@ -6,7 +6,7 @@ from pathlib import Path
 from scipy.spatial.transform import Rotation as R
 
 import os
-import bpy
+
 
 # import debugpy # for debugging
 # debugpy.listen(5678)
@@ -20,7 +20,7 @@ def sample_pose(obj: bproc.types.MeshObject):
     obj.set_rotation_euler(bproc.sampler.uniformSO3())
 
 def generate_grid ():
-    X = np.linspace(-0.4, 0.4, 5)
+    X = np.linspace(-0.3, 0.3, 5)
     Y = np.linspace(-0.22, 0.22, 5)
     x,y = np.meshgrid(X, Y)
     return x,y
@@ -39,32 +39,37 @@ DEBUG = True # turn to False to render
 #     axes = helper.create_coordinate_frame(length=2.0, radius=0.05)
 #     print("Global coordinate frame created at origin")
 
-number_of_renderings = 3 # number of images to render
-#-------Set up camera and light-------#
+number_of_renderings = 2 # number of images to render
+# #-------Set up camera and light-------#
+# K = np.array([[23, 0, 0],
+#               [0, 23, 0],
+#               [0,   0, 1]])
+# bproc.camera.set_intrinsics_from_K_matrix(K, image_width=512, image_height=512)
 # Init camera pose
-init_camera_pos_x = 0.22012
-init_camera_pos_y = -2.0731
-init_camera_pos_z = 1.8627
+init_camera_pos_x = 0.307
+init_camera_pos_y = -1.0
+init_camera_pos_z = 1.41
 
 camera_pos_x_range = 0.2
 camera_pos_y_range = 0.2
-camera_pos_z_range = 0.2
+camera_pos_z_range = 0.1
 
 init_camera_euler_x = 71.125
 init_camera_euler_y = 0.68952
 init_camera_euler_z = 1.1758
 
-camera_euler_x_range = 10.0
-camera_euler_y_range = 10.0
+camera_euler_x_range = 5.0
+camera_euler_y_range = 5.0
 camera_euler_z_range = 10.0
 
-camera_pos_x_samples = np.linspace(init_camera_pos_x - camera_pos_x_range, init_camera_pos_x + camera_pos_x_range, number_of_renderings)
-camera_pos_y_samples = np.linspace(init_camera_pos_y - camera_pos_y_range, init_camera_pos_y + camera_pos_y_range, number_of_renderings)
-camera_pos_z_samples = np.linspace(init_camera_pos_z - camera_pos_z_range, init_camera_pos_z + camera_pos_z_range, number_of_renderings)
+number_of_sampling_camera_poses = 10
+camera_pos_x_samples = np.linspace(init_camera_pos_x - camera_pos_x_range, init_camera_pos_x + camera_pos_x_range, number_of_sampling_camera_poses)
+camera_pos_y_samples = np.linspace(init_camera_pos_y - camera_pos_y_range, init_camera_pos_y + camera_pos_y_range, number_of_sampling_camera_poses)
+camera_pos_z_samples = np.linspace(init_camera_pos_z - camera_pos_z_range, init_camera_pos_z + camera_pos_z_range, number_of_sampling_camera_poses)
 
-camera_euler_x_samples = np.linspace(init_camera_euler_x - camera_euler_x_range, init_camera_euler_x + camera_euler_x_range, number_of_renderings)
-camera_euler_y_samples = np.linspace(init_camera_euler_y - camera_euler_y_range, init_camera_euler_y + camera_euler_y_range, number_of_renderings)
-camera_euler_z_samples = np.linspace(init_camera_euler_z - camera_euler_z_range, init_camera_euler_z + camera_euler_z_range, number_of_renderings)
+camera_euler_x_samples = np.linspace(init_camera_euler_x - camera_euler_x_range, init_camera_euler_x + camera_euler_x_range, number_of_sampling_camera_poses)
+camera_euler_y_samples = np.linspace(init_camera_euler_y - camera_euler_y_range, init_camera_euler_y + camera_euler_y_range, number_of_sampling_camera_poses)
+camera_euler_z_samples = np.linspace(init_camera_euler_z - camera_euler_z_range, init_camera_euler_z + camera_euler_z_range, number_of_sampling_camera_poses)
 
 camera_pos_init = np.array([init_camera_pos_x, init_camera_pos_y, init_camera_pos_z])
 camera_euler = np.array([init_camera_euler_x, init_camera_euler_y, init_camera_euler_z]) # in degree
@@ -97,7 +102,7 @@ print(f"Found {len(object_blend_files)} object blend files.") # print for debug
 
 object_idx_list = range(len(object_blend_files))
 # randomly select 3 objects
-number_of_objects_to_load = 3
+number_of_objects_to_load = 5
 selected_idx = np.random.choice(object_idx_list, size=number_of_objects_to_load, replace=False)
 
 print(f"Total selected mesh objects: {len(object_idx_list)}") # print for debug
@@ -129,26 +134,79 @@ for idx in range(len(selected_idx)):
 # sample_pose_func=sample_pose)
 
 
+render_cam_location =[]
+render_cam_euler =[]
+render_light_energy =[]
 
 if DEBUG:
-    # bproc.object.delete_multiple(bg_objs, remove_all_offspring=False) # delete kitchen background
-    # Only load rgb image
+
+    
     for _ in range(number_of_renderings):
+
+        # 1st: render rgb images only
         # Sample a random camera location around the object
         camera_location_random = np.random.choice(camera_pos_x_samples, 1)[0], np.random.choice(camera_pos_y_samples, 1)[0], np.random.choice(camera_pos_z_samples, 1)[0]
         camera_euler_random = np.random.choice(camera_euler_x_samples, 1)[0], np.random.choice(camera_euler_y_samples, 1)[0], np.random.choice(camera_euler_z_samples, 1)[0]
         camera_rotation_random = R.from_euler('xyz', camera_euler_random, degrees=True).as_matrix()
         cam2world_matrix = bproc.math.build_transformation_mat(camera_location_random, camera_rotation_random)
-
+        
         # set a randome light energy level
         light.set_energy(np.random.choice(light_energy_samples, 1)[0])
 
+        # save camera and light for next rendering
+        render_cam_location.append(camera_location_random)
+        render_cam_euler.append(camera_euler_random)
+        render_light_energy.append(light.get_energy())
         bproc.camera.add_camera_pose(cam2world_matrix)
-        data = bproc.renderer.render()
-        #data.update(bproc.renderer.render_nocs())
-        # write the data to a .hdf5 container
-        bproc.writer.write_hdf5("output/", data)
-    
+
+
+        data_rgb = bproc.renderer.render()
+    bproc.writer.write_hdf5("output/", data_rgb)   
+         
+    # # render depth maps
+    # # activate depth rendering
+    # # delete kitchen background    
+    # bproc.object.delete_multiple(bg_objs, remove_all_offspring=False)
+    # # load wall background only for depth rendering
+    # # background_blend_files = Path("blender_models/background/background_wall.blend")
+    # # bg_objs = bproc.loader.load_blend(str(background_blend_files))
+    # # print(f"Loading object from {background_blend_files}") # print for debug
+    # bproc.renderer.enable_depth_output(activate_antialiasing=False, antialiasing_distance_max=0.5)
+    # bproc.renderer.set_noise_threshold(0.01)  # this is the default value
+    # for i in range(number_of_renderings):
+    #     # set camera pose
+    #     camera_location_random = render_cam_location[i]
+    #     camera_euler_random = render_cam_euler[i]
+    #     camera_rotation_random = R.from_euler('xyz', camera_euler_random, degrees=True).as_matrix()
+    #     cam2world_matrix = bproc.math.build_transformation_mat(camera_location_random, camera_rotation_random)
+    #     bproc.camera.add_camera_pose(cam2world_matrix)
+
+    #     # set light energy
+    #     light.set_energy(render_light_energy[i])
+
+    #     data_depth = bproc.renderer.render()
+    #     bproc.writer.write_hdf5("output/", data_depth, append_to_existing_output=False)
+
+
+    # delete background to render nocs and segmentation only for the target objects
+    bproc.object.delete_multiple(bg_objs, remove_all_offspring=False) # delete kitchen background    
+    bproc.renderer.enable_depth_output(activate_antialiasing=False, antialiasing_distance_max=0.5)
+    bproc.renderer.enable_segmentation_output(map_by=["name","instance"])
+    for i in range(number_of_renderings):
+        # set camera pose
+        camera_location_random = render_cam_location[i]
+        camera_euler_random = render_cam_euler[i]
+        camera_rotation_random = R.from_euler('xyz', camera_euler_random, degrees=True).as_matrix()
+        cam2world_matrix = bproc.math.build_transformation_mat(camera_location_random, camera_rotation_random)
+        bproc.camera.add_camera_pose(cam2world_matrix)
+
+        # set light energy
+        light.set_energy(render_light_energy[i])
+
+        data_nocs_seg = bproc.renderer.render()
+        data_nocs_seg.update(bproc.renderer.render_nocs())
+    bproc.writer.write_hdf5("output/", data_nocs_seg, append_to_existing_output=True)
+        
 
 else:
     bproc.renderer.set_max_samples(128) # production
